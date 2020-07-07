@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import pickle as p
 from utils import preprocess, optimal_decision
 import numpy as np
+import numbers
 
 
 def data_to_array(data):
@@ -16,29 +17,33 @@ def data_to_array(data):
     return np.array([arr[1:]])
 
 
-expectedFields = ["user_id", "order_created_datetime", "amount", "total_amount_14days", "email_handle_length", \
-                  "email_handle_dst_char", "total_nb_orders_player", "player_seniority", \
-                  "total_nb_play_sessions", "geographic_distance_risk"]
+expectedFields = ["order_id", "user_id", "order_created_datetime", "amount", "total_amount_14days",
+                  "email_handle_length", "email_handle_dst_char", "total_nb_orders_player",
+                  "player_seniority", "total_nb_play_sessions", "geographic_distance_risk"]
+expectedTypes = [numbers.Number, numbers.Number, str, numbers.Number, numbers.Number,
+                 numbers.Number, numbers.Number, numbers.Number,
+                 numbers.Number, numbers.Number, numbers.Number]
 
 
-def check_json(expected_fields, data):
+def check_json(expected_fields, expected_types, data):
     """
-    Check if sent json has correct fields
+    Check if sent json has correct fields and types
     :param expected_fields: expected fields of json
+    :param expected_types: expected type values in json
     :param data: sent json
     :return: Error message if fields are incorrect
     """
-    if not data:
-        return 'JSON ERROR no data provided'
-    if len(data) != 11:
-        return 'JSON ERROR  number of fields mismatch'
-    for f in expected_fields:
-        try:
-            data[f]
-        except:
-            return 'JSON ERROR  field not found: {}'.format(f)
+    if sorted(data.keys()) != sorted(expected_fields):
+        return 'JSON ERROR: fields mismatch'
+    if not all([isinstance(k, expected_types[i]) for i, k in enumerate(data.values())]):
+        return 'JSON ERROR: types mismatch'
 
 
+# Load model and user counter dict
+modelfile = 'assemble_adaboost_model.pkl'
+model = p.load(open(modelfile, 'rb'))
+user_id_counter_file = 'user_id_counter.pkl'
+user_id_counter = p.load(open(user_id_counter_file, 'rb'))
 app = Flask(__name__)
 
 
@@ -50,7 +55,7 @@ def make_predict():
 
     data = request.json
     # Check if json is valid and return error message if not
-    errorMessage = check_json(expectedFields, data)
+    errorMessage = check_json(expectedFields, expectedTypes, data)
     if errorMessage is not None:
         return errorMessage, 400
 
@@ -67,9 +72,4 @@ def make_predict():
 
 
 if __name__ == '__main__':
-    # Load model and user counter dict
-    modelfile = 'assemble_adaboost_model.pkl'
-    model = p.load(open(modelfile, 'rb'))
-    user_id_counter_file = 'user_id_counter.pkl'
-    user_id_counter = p.load(open(user_id_counter_file, 'rb'))
-    app.run(debug=True, host='0.0.0.0')
+    app.run(host='0.0.0.0')
