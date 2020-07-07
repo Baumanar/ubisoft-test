@@ -99,6 +99,7 @@ class AssembleAdaBoost:
         """
         stump_preds = np.array([stump.predict(X) for stump in self.stumps])
         decision = np.dot(self.stump_weights, stump_preds)
+        # Use softmax to compute probabilities
         decision = np.vstack([-decision, decision]).T / 2
         return softmax(decision, copy=False)
 
